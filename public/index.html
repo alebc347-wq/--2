@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多人在線帝國爭霸 | Multiplayer Empire Online</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Outfit:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ==========================================
+       紅光防空警報覆蓋層 (Incoming Marching Alert)
+       ========================================== -->
+  <div id="air-raid-overlay" class="air-raid-hidden">
+    <div class="siren-content">
+      <i class="fa-solid fa-triangle-exclamation fa-beat-fast alert-icon"></i>
+      <h2>【緊急國防警報 - SIREN ACTIVATED】</h2>
+      <p id="air-raid-message">外來部隊正全速朝我軍大本營行軍！</p>
+      <div class="alarm-timer-container">
+        <span class="timer-label">預計抵達倒數：</span>
+        <span id="air-raid-countdown" class="timer-countdown">30s</span>
+      </div>
+      <p class="siren-action-hint">立即點擊「國防部」調度駐防守軍或增建要塞防禦！</p>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       登入 / 註冊 介面 (Auth Screen)
+       ========================================== -->
+  <div id="auth-screen" class="screen-active">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="logo-icon"><i class="fa-solid fa-chess-rook"></i></div>
+        <h1>EMPIRE ONLINE</h1>
+        <p>多人在線帝國爭霸控制終端</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button id="tab-login-btn" class="auth-tab-active" onclick="switchAuthTab('login')">帝國登入</button>
+        <button id="tab-register-btn" onclick="switchAuthTab('register')">創建新帝國</button>
+      </div>
+
+      <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+        <div class="input-group">
+          <label for="auth-username"><i class="fa-solid fa-user"></i> 帝國帳號</label>
+          <input type="text" id="auth-username" required placeholder="請輸入 3-15 字元英文或數字">
+        </div>
+
+        <div class="input-group">
+          <label for="auth-password"><i class="fa-solid fa-lock"></i> 終端密碼</label>
+          <input type="password" id="auth-password" required placeholder="請輸入安全密碼">
+        </div>
+
+        <div id="register-only-fields" class="auth-fields-hidden">
+          <div class="input-group">
+            <label for="auth-empire"><i class="fa-solid fa-crown"></i> 帝國尊號</label>
+            <input type="text" id="auth-empire" placeholder="如：奧匈帝國、大明王朝">
+          </div>
+        </div>
+
+        <button type="submit" id="auth-submit-btn" class="glowing-btn">進入帝國終端</button>
+      </form>
+      <div id="auth-error" class="auth-error-msg"></div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       主遊戲儀表板 (Game Main App)
+       ========================================== -->
+  <div id="game-app" class="game-hidden">
+    
+    <!-- 頂部浮動資源列 (Resource Header Bar) -->
+    <header class="resource-header">
+      <div class="empire-info">
+        <div class="avatar"><i class="fa-solid fa-crown"></i></div>
+        <div>
+          <h3 id="res-empire-name">載入中...</h3>
+          <span class="shield-badge" id="shield-badge"><i class="fa-solid fa-shield-halved"></i> 新手保護期</span>
+        </div>
+      </div>
+
+      <div class="resources-grid">
+        <div class="res-card gold-glow" title="金幣：用於各種建設與貿易">
+          <span class="icon"><i class="fa-solid fa-coins"></i></span>
+          <div class="value-container">
+            <span class="label">金幣 (Gold)</span>
+            <span class="value" id="res-gold">0</span>
+          </div>
+        </div>
+
+        <div class="res-card food-glow" title="糧食：人口消耗糧食，歸零會發生饑荒！">
+          <span class="icon"><i class="fa-solid fa-wheat-awn"></i></span>
+          <div class="value-container">
+            <span class="label">糧食 (Food)</span>
+            <span class="value" id="res-food">0</span>
+          </div>
+        </div>
+
+        <div class="res-card wood-glow" title="木材：用於擴建房屋與要塞">
+          <span class="icon"><i class="fa-solid fa-tree"></i></span>
+          <div class="value-container">
+            <span class="label">木材 (Wood)</span>
+            <span class="value" id="res-wood">0</span>
+          </div>
+        </div>
+
+        <div class="res-card iron-glow" title="鐵礦：高級軍人與科技研究需要">
+          <span class="icon"><i class="fa-solid fa-cubes"></i></span>
+          <div class="value-container">
+            <span class="label">鐵礦 (Iron)</span>
+            <span class="value" id="res-iron">0</span>
+          </div>
+        </div>
+
+        <div class="res-card science-glow" title="科技點數：用於解鎖科技研究">
+          <span class="icon"><i class="fa-solid fa-bolt"></i></span>
+          <div class="value-container">
+            <span class="label">科技點 (TP)</span>
+            <span class="value" id="res-tp">0</span>
+          </div>
+        </div>
+
+        <div class="res-card pop-glow" title="人口：無業市民/總人口/容量上限">
+          <span class="icon"><i class="fa-solid fa-users"></i></span>
+          <div class="value-container">
+            <span class="label">人口 (Pop)</span>
+            <span class="value" id="res-pop">0/0/0</span>
+          </div>
+        </div>
+
+        <div class="res-card happiness-card" id="happiness-card" title="人民滿意度：影響工作效率與人口自然增長">
+          <span class="icon" id="happy-icon"><i class="fa-solid fa-face-smile"></i></span>
+          <div class="value-container">
+            <span class="label">滿意度</span>
+            <span class="value" id="res-happiness">100%</span>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="handleLogout()" class="logout-btn" title="登出並保存"><i class="fa-solid fa-power-off"></i></button>
+    </header>
+
+    <!-- 遊戲主體佈局 (Sidebar + Content Container) -->
+    <div class="main-container">
+      
+      <!-- 左側側邊欄導航 (Sidebar Menu) -->
+      <aside class="sidebar">
+        <nav class="nav-menu">
+          <button onclick="switchTab('tab-overview')" id="btn-tab-overview" class="nav-item active">
+            <i class="fa-solid fa-chart-line"></i> 帝國總覽
+          </button>
+          
+          <div class="nav-divider">政府行政部門</div>
+          
+          <button onclick="switchTab('tab-defense')" id="btn-tab-defense" class="nav-item">
+            <i class="fa-solid fa-shield-halved"></i> 國防部 (Defense)
+          </button>
+          <button onclick="switchTab('tab-agriculture')" id="btn-tab-agriculture" class="nav-item">
+            <i class="fa-solid fa-wheat-awn-circle-exclamation"></i> 農業部 (Agriculture)
+          </button>
+          <button onclick="switchTab('tab-finance')" id="btn-tab-finance" class="nav-item">
+            <i class="fa-solid fa-wallet"></i> 財政部 (Finance)
+          </button>
+          <button onclick="switchTab('tab-science')" id="btn-tab-science" class="nav-item">
+            <i class="fa-solid fa-microscope"></i> 科技部 (Science)
+          </button>
+          <button onclick="switchTab('tab-interior')" id="btn-tab-interior" class="nav-item">
+            <i class="fa-solid fa-house-chimney-window"></i> 內政部 (Interior)
+          </button>
+          
+          <div class="nav-divider">聯網對外行動</div>
+          
+          <button onclick="switchTab('tab-worldmap')" id="btn-tab-worldmap" class="nav-item">
+            <i class="fa-solid fa-earth-asia"></i> 聯網世界地圖
+          </button>
+          <button onclick="switchTab('tab-market')" id="btn-tab-market" class="nav-item">
+            <i class="fa-solid fa-scale-balanced"></i> 資源貿易市場
+          </button>
+          <button onclick="switchTab('tab-leaderboard')" id="btn-tab-leaderboard" class="nav-item">
+            <i class="fa-solid fa-ranking-star"></i> 全球帝國排行
+          </button>
+          <button onclick="switchTab('tab-reports')" id="btn-tab-reports" class="nav-item reports-nav">
+            <i class="fa-solid fa-receipt"></i> 戰報歷史紀錄 <span class="badge" id="report-badge-num">0</span>
+          </button>
+        </nav>
+        
+        <div class="server-status">
+          <span class="pulse-dot"></span>
+          <span>已連線至全球戰局</span>
+        </div>
+      </aside>
+
+      <!-- 主要內容區域 (Central Content Pane) -->
+      <main class="content-pane">
+        
+        <!-- ==================== 1. 帝國總覽頁 (Overview Tab) ==================== -->
+        <section id="tab-overview" class="tab-content active">
+          <div class="section-title">
+            <h2>帝國行政總覽中心</h2>
+            <p>在這裡管理你的政務、分配帝國子民的日常職業。</p>
+          </div>
+
+          <div class="overview-grid">
+            
+            <!-- 帝國基礎卡 (Empire Summary) -->
+            <div class="glass-card main-summary-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-monument"></i> 統治基座</h3>
+                <span class="sub-header" id="overview-empire-tier">一階自治領</span>
+              </div>
+              <div class="summary-body">
+                <div class="status-row">
+                  <span>君主大名:</span>
+                  <strong id="summary-username">Caleb</strong>
+                </div>
+                <div class="status-row">
+                  <span>帝國壽命:</span>
+                  <strong id="summary-age">0 分鐘</strong>
+                </div>
+                <div class="status-row">
+                  <span>帝國綜合戰力:</span>
+                  <strong class="highlight-text" id="summary-power">150</strong>
+                </div>
+                <div class="status-row">
+                  <span>保護護盾:</span>
+                  <strong id="summary-shield">新手保護中</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- 人口就業管理 (Employment Panel) -->
+            <div class="glass-card employment-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-briefcase"></i> 內政部：帝國人口普查與就業分配</h3>
+                <span class="citizens-idle" id="overview-unassigned">閒置人口: 10人</span>
+              </div>
+              <div class="job-distribution-list">
+                
+                <div class="job-item">
+                  <div class="job-details">
+                    <span class="job-icon peasant-color"><i class="fa-solid fa-wheat-awn"></i></span>
+                    <div>
+                      <h4>農民 (Peasant)</h4>
+                      <p>生產糧食。維持帝國人口存活的根本。</p>
+                    </div>
+                  </div>
+                  <div class="job-counter">
+                    <button onclick="adjustJob('peasants', -1)">-</button>
+                    <span class="job-val" id="job-peasants-val">5</span>
+                    <button onclick="adjustJob('peasants', 1)">+</button>
+                  </div>
+                </div>
+
+                <div class="job-item">
+                  <div class="job-details">
+                    <span class="job-icon lumberjack-color"><i class="fa-solid fa-tree"></i></span>
+                    <div>
+                      <h4>伐木工 (Lumberjack)</h4>
+                      <p>砍伐林木。用以建造民房與強化防線。</p>
+                    </div>
+                  </div>
+                  <div class="job-counter">
+                    <button onclick="adjustJob('lumberjacks', -1)">-</button>
+                    <span class="job-val" id="job-lumberjacks-val">3</span>
+                    <button onclick="adjustJob('lumberjacks', 1)">+</button>
+                  </div>
+                </div>
+
+                <div class="job-item">
+                  <div class="job-details">
+                    <span class="job-icon miner-color"><i class="fa-solid fa-cubes"></i></span>
+                    <div>
+                      <h4>礦工 (Miner)</h4>
+                      <p>開採鐵礦。用於先進軍備與尖端科研。</p>
+                    </div>
+                  </div>
+                  <div class="job-counter">
+                    <button onclick="adjustJob('miners', -1)">-</button>
+                    <span class="job-val" id="job-miners-val">2</span>
+                    <button onclick="adjustJob('miners', 1)">+</button>
+                  </div>
+                </div>
+
+                <div class="job-item disabled-soldier-item">
+                  <div class="job-details">
+                    <span class="job-icon soldier-color"><i class="fa-solid fa-shield-halved"></i></span>
+                    <div>
+                      <h4>帝國士兵 (Soldier)</h4>
+                      <p>國防駐軍與遠征主力。需消耗糧食與工資。</p>
+                    </div>
+                  </div>
+                  <div class="job-counter">
+                    <span class="job-val text-muted" id="job-soldiers-val">0</span>
+                    <small>國防部徵募</small>
+                  </div>
+                </div>
+
+              </div>
+              <div class="job-actions">
+                <button onclick="saveJobs()" class="glowing-btn action-btn">下達就業調動令</button>
+              </div>
+            </div>
+
+            <!-- 政府單位升級面板 (Quick Departments upgrades) -->
+            <div class="glass-card depts-summary-card">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-building-columns"></i> 政府部門運作狀態</h3>
+              </div>
+              <div class="depts-list">
+                
+                <div class="dept-row">
+                  <span class="dept-name"><i class="fa-solid fa-shield-halved"></i> 國防部</span>
+                  <span class="dept-level" id="overview-dept-defense">LV.1</span>
+                  <button onclick="upgradeDept('defense')" class="mini-upgrade-btn">升級</button>
+                </div>
+
+                <div class="dept-row">
+                  <span class="dept-name"><i class="fa-solid fa-wheat-awn"></i> 農業部</span>
+                  <span class="dept-level" id="overview-dept-agriculture">LV.1</span>
+                  <button onclick="upgradeDept('agriculture')" class="mini-upgrade-btn">升級</button>
+                </div>
+
+                <div class="dept-row">
+                  <span class="dept-name"><i class="fa-solid fa-wallet"></i> 財政部</span>
+                  <span class="dept-level" id="overview-dept-finance">LV.1</span>
+                  <button onclick="upgradeDept('finance')" class="mini-upgrade-btn">升級</button>
+                </div>
+
+                <div class="dept-row">
+                  <span class="dept-name"><i class="fa-solid fa-microscope"></i> 科技部</span>
+                  <span class="dept-level" id="overview-dept-science">LV.1</span>
+                  <button onclick="upgradeDept('science')" class="mini-upgrade-btn">升級</button>
+                </div>
+
+                <div class="dept-row">
+                  <span class="dept-name"><i class="fa-solid fa-house-chimney-window"></i> 內政部</span>
+                  <span class="dept-level" id="overview-dept-interior">LV.1</span>
+                  <button onclick="upgradeDept('interior')" class="mini-upgrade-btn">升級</button>
+                </div>
+
+              </div>
+              <p class="cost-hint-txt"><i class="fa-solid fa-circle-info"></i> 點擊各部門升級將消耗：🪙金幣、🪵木材、🪙鐵礦。各部門專屬面板提供更多操作。</p>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ==================== 2. 國防部 (Defense Tab) ==================== -->
+        <section id="tab-defense" class="tab-content">
+          <div class="section-title">
+            <h2><i class="fa-solid fa-shield-halved"></i> 帝國國防部 (Ministry of Defense)</h2>
+            <p>徵募軍隊、加固城牆、部署防線，抵禦外來帝國的掠奪野心。</p>
+          </div>
+
+          <div class="division-layout">
+            <!-- 左：軍事升級與徵召 -->
+            <div class="glass-card flex-2">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-helmet-safety"></i> 國防軍營與擴軍計劃</h3>
+                <span class="badge badge-accent" id="def-soldiers-count">現役士兵: 0 人</span>
+              </div>
+              <div class="recruit-box">
+                <h4>徵召新兵</h4>
+                <p class="description">將帝國的「無業市民」派往軍事基地進行特訓，晉升為武裝國防軍。每名士兵訓練耗費：🪙50金幣、🪙20鐵礦。</p>
+                <div class="action-row">
+                  <input type="number" id="recruit-input-amount" min="1" placeholder="輸入徵召人數" class="styled-input">
+                  <button onclick="recruitSoldiers()" class="glowing-btn">下達徵募令</button>
+                </div>
+              </div>
+
+              <div class="fortress-upgrade-box">
+                <h4>防衛要塞：加固邊防城牆</h4>
+                <div class="fortress-status-grid">
+                  <div>
+                    <span class="lbl">城牆加固等級</span>
+                    <strong class="val" id="def-wall-level">LV.0</strong>
+                  </div>
+                  <div>
+                    <span class="lbl">要塞防守加成</span>
+                    <strong class="val val-accent" id="def-wall-bonus">0% 加成</strong>
+                  </div>
+                </div>
+                <p class="description">建造固若金湯的城牆，使所有留守士兵防守時戰力暴增。每級提供 +25% 的防禦力加成！</p>
+                <button id="upgrade-wall-btn" onclick="upgradeWall()" class="glowing-btn secondary-glowing-btn">加固城牆 (消耗 🪵木材 / 🪙鐵礦)</button>
+              </div>
+            </div>
+
+            <!-- 右：部隊級別資訊 -->
+            <div class="glass-card flex-1">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-ranking-star"></i> 解鎖部隊階級</h3>
+              </div>
+              <div class="troop-tiers-list">
+                <div class="troop-tier-item active-tier" id="troop-tier-1">
+                  <span class="tier-icon"><i class="fa-solid fa-person-rifle"></i></span>
+                  <div>
+                    <strong>基礎民兵 (Militia)</strong>
+                    <p>國防部 LV.1 解鎖。手持基本長矛與皮甲，防禦邊防。</p>
+                  </div>
+                </div>
+                <div class="troop-tier-item" id="troop-tier-2">
+                  <span class="tier-icon"><i class="fa-solid fa-shield"></i></span>
+                  <div>
+                    <strong>正規步兵 (Infantry)</strong>
+                    <p>國防部 LV.3 解鎖。裝備精鋼闊劍，戰鬥力大幅提升。</p>
+                  </div>
+                </div>
+                <div class="troop-tier-item" id="troop-tier-3">
+                  <span class="tier-icon"><i class="fa-solid fa-horse"></i></span>
+                  <div>
+                    <strong>皇家騎士 (Knight)</strong>
+                    <p>國防部 LV.5 解鎖。重裝鐵騎，具有強大的突擊力。</p>
+                  </div>
+                </div>
+                <div class="troop-tier-item" id="troop-tier-4">
+                  <span class="tier-icon"><i class="fa-solid fa-truck-monster"></i></span>
+                  <div>
+                    <strong>裝甲戰車 (Tank)</strong>
+                    <p>國防部 LV.8 解鎖。鋼鐵巨獸，攻城掠地的終極裝備。</p>
+                  </div>
+                </div>
+                <div class="troop-tier-item" id="troop-tier-5">
+                  <span class="tier-icon"><i class="fa-solid fa-satellite-dish"></i></span>
+                  <div>
+                    <strong>電磁軌道砲 (Railgun)</strong>
+                    <p>國防部 LV.12 解鎖。高科技殲滅武器，橫掃一切防線。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 3. 農業部 (Agriculture Tab) ==================== -->
+        <section id="tab-agriculture" class="tab-content">
+          <div class="section-title">
+            <h2><i class="fa-solid fa-wheat-awn-circle-exclamation"></i> 帝國農業部 (Ministry of Agriculture)</h2>
+            <p>調控糧食產出、開墾帝國荒原、實施國家農業補貼計畫。</p>
+          </div>
+
+          <div class="division-layout">
+            <div class="glass-card flex-1">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-tractor"></i> 荒原開拓計劃</h3>
+              </div>
+              <div class="action-body">
+                <p class="description">派遣工程隊使用工具開墾帝國周邊被輻射或荒蕪的廢土。開墾成功後將吸引 **5 名無業新移民** 來帝國工作，並擴大農業耕種面積。</p>
+                <div class="reclaim-cost-container">
+                  <p>當前開墾耗資：</p>
+                  <ul class="cost-list">
+                    <li><i class="fa-solid fa-tree"></i> 木材：<strong id="agri-reclaim-cost-wood">300</strong></li>
+                    <li><i class="fa-solid fa-cubes"></i> 鐵礦：<strong id="agri-reclaim-cost-iron">150</strong></li>
+                  </ul>
+                </div>
+                <button onclick="reclaimWaste()" class="glowing-btn">下達荒原開墾令</button>
+              </div>
+            </div>
+
+            <div class="glass-card flex-1">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-circle-dollar-to-slot"></i> 全國農業補貼政策</h3>
+              </div>
+              <div class="action-body">
+                <p class="description">從國庫撥款大筆金幣對所有從事耕種的農民發放專項資金補貼。政策下達後，所有農民的糧食每秒產量將**暴增 50%**，持續 2 分鐘 (120 秒)！</p>
+                <div class="reclaim-cost-container">
+                  <p>補貼發放花費：</p>
+                  <p><i class="fa-solid fa-coins"></i> 金幣：<strong id="agri-subsidy-cost">400</strong></p>
+                </div>
+                <div id="subsidy-timer-box" class="subsidy-timer-inactive">
+                  補貼生效中！剩餘倒數：<strong id="agri-subsidy-timer">0s</strong>
+                </div>
+                <button onclick="subsidizeAgriculture()" id="agri-subsidy-btn" class="glowing-btn secondary-glowing-btn">撥款發放農業補貼</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 4. 財政部 (Finance Tab) ==================== -->
+        <section id="tab-finance" class="tab-content">
+          <div class="section-title">
+            <h2><i class="fa-solid fa-wallet"></i> 帝國財政部 (Ministry of Finance)</h2>
+            <p>調整國民稅收、掌控帝國財政赤字、使用官方資源交易所進行緊急調度。</p>
+          </div>
+
+          <div class="division-layout">
+            <!-- 稅率控制 -->
+            <div class="glass-card flex-1">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-scale-unbalanced"></i> 稅率起徵點設定</h3>
+                <span class="badge" id="fin-current-tax">目前稅率: 10%</span>
+              </div>
+              <div class="action-body">
+                <p class="description">設定帝國子民的個人所得稅率。較高的稅率會為帝國帶來海量金幣收益，但會**急劇降低市民的幸福感/滿意度**！滿意度過低會導致生產效率暴跌甚至引發人口暴動逃離！</p>
+                
+                <div class="tax-range-selector">
+                  <label for="tax-range-input">調整稅率 (5% - 50%)</label>
+                  <div class="input-slider-row">
+                    <input type="range" id="tax-range-input" min="5" max="50" value="10" class="styled-slider" oninput="updateTaxPreview(this.value)">
+                    <span id="tax-slider-preview" class="slider-preview-val">10%</span>
+                  </div>
+                </div>
+
+                <div class="happiness-forecast">
+                  <span>滿意度均衡點預測：</span>
+                  <strong id="tax-happiness-forecast" class="happy-good">84 / 100 (穩定)</strong>
+                </div>
+
+                <button onclick="saveTaxRate()" class="glowing-btn">頒佈帝國新稅務法</button>
+              </div>
+            </div>
+
+            <!-- 說明卡 -->
+            <div class="glass-card flex-1">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-sack-dollar"></i> 財政調控政策說明</h3>
+              </div>
+              <div class="tax-info-box">
+                <div class="info-metric">
+                  <span class="label">財政部等級 (Finance Level)</span>
+                  <strong id="fin-dept-level">LV.1</strong>
+                </div>
+                <div class="info-metric">
+                  <span class="label">交易所手續費減免率</span>
+                  <strong id="fin-fee-discount" class="text-accent">0% 減免</strong>
+                </div>
+                <p class="description">升級財政部能為你的帝國提供**交易所折扣**！每升一級，在官方「資源貿易市場」進行買入與賣出時，手續費與價差會減少 4%。</p>
+                <div class="warning-alert-box">
+                  <i class="fa-solid fa-circle-exclamation"></i>
+                  <span><strong>警報提醒：</strong>軍人不會繳納稅收，並且每人每秒會消耗 0.08 金幣的軍餉维持費。若金幣歸零，國防軍將面臨破產欠薪！</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 5. 科技部 (Science Tab) ==================== -->
+        <section id="tab-science" class="tab-content">
+          <div class="section-title">
+            <h2><i class="fa-solid fa-microscope"></i> 帝國科技部 (Ministry of Science & Tech)</h2>
+            <p>使用累積的「科技點數 (TP)」解鎖工業、軍事、農業的尖端研發項目。</p>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-flask"></i> 皇家科研技術樹</h3>
+              <span class="science-rate-badge" id="sci-tp-rate">科技研發速度: +0.1 TP / 秒</span>
+            </div>
+            
+            <div class="tech-grid">
+              
+              <!-- 科技 1: 工業自動化 -->
+              <div class="tech-card">
+                <div class="tech-header">
+                  <span class="tech-icon"><i class="fa-solid fa-gears"></i></span>
+                  <div>
+                    <h4>工業自動化 (Automation)</h4>
+                    <span class="tech-lvl-badge" id="tech-lvl-automation">LV.0</span>
+                  </div>
+                </div>
+                <p class="tech-desc">研發自動化採礦器與高速電鋸。每級提升 **15% 木材與鐵礦** 生產速率。</p>
+                <div class="tech-cost-action">
+                  <span>升級消耗: <strong id="tech-cost-automation">100 TP</strong></span>
+                  <button onclick="researchTech('automation')" class="glowing-btn mini-tech-btn">進行研發</button>
+                </div>
+              </div>
+
+              <!-- 科技 2: 基因改造作物 -->
+              <div class="tech-card">
+                <div class="tech-header">
+                  <span class="tech-icon"><i class="fa-solid fa-dna"></i></span>
+                  <div>
+                    <h4>基因改造作物 (Genetic Crops)</h4>
+                    <span class="tech-lvl-badge" id="tech-lvl-crops">LV.0</span>
+                  </div>
+                </div>
+                <p class="tech-desc">引進抗寒小麥與基因增產肥料。每級提升 **20% 農民糧食** 生產速率。</p>
+                <div class="tech-cost-action">
+                  <span>升級消耗: <strong id="tech-cost-crops">100 TP</strong></span>
+                  <button onclick="researchTech('crops')" class="glowing-btn mini-tech-btn">進行研發</button>
+                </div>
+              </div>
+
+              <!-- 科技 3: 先進冶金術 -->
+              <div class="tech-card">
+                <div class="tech-header">
+                  <span class="tech-icon"><i class="fa-solid fa-anvil"></i></span>
+                  <div>
+                    <h4>先進冶金術 (Metallurgy)</h4>
+                    <span class="tech-lvl-badge" id="tech-lvl-metallurgy">LV.0</span>
+                  </div>
+                </div>
+                <p class="tech-desc">鍛造先進奈米合金防護甲。每級提升 **20% 守軍防禦力**，減少遭受侵略的傷亡。</p>
+                <div class="tech-cost-action">
+                  <span>升級消耗: <strong id="tech-cost-metallurgy">100 TP</strong></span>
+                  <button onclick="researchTech('metallurgy')" class="glowing-btn mini-tech-btn">進行研發</button>
+                </div>
+              </div>
+
+              <!-- 科技 4: 戰術協同陣型 -->
+              <div class="tech-card">
+                <div class="tech-header">
+                  <span class="tech-icon"><i class="fa-solid fa-chess"></i></span>
+                  <div>
+                    <h4>戰術協同陣型 (Tactics)</h4>
+                    <span class="tech-lvl-badge" id="tech-lvl-tactics">LV.0</span>
+                  </div>
+                </div>
+                <p class="tech-desc">規劃閃擊戰術與三維立體夾擊陣型。每級提升 **20% 部隊出征突襲攻擊力**。</p>
+                <div class="tech-cost-action">
+                  <span>升級消耗: <strong id="tech-cost-tactics">100 TP</strong></span>
+                  <button onclick="researchTech('tactics')" class="glowing-btn mini-tech-btn">進行研發</button>
+                </div>
+              </div>
+
+              <!-- 科技 5: 全國宣傳網 -->
+              <div class="tech-card">
+                <div class="tech-header">
+                  <span class="tech-icon"><i class="fa-solid fa-tower-broadcast"></i></span>
+                  <div>
+                    <h4>帝國宣傳網絡 (Propaganda)</h4>
+                    <span class="tech-lvl-badge" id="tech-lvl-propaganda">LV.0</span>
+                  </div>
+                </div>
+                <p class="tech-desc">架設覆蓋全國的廣播通訊網。每級提升 **15% 人口吸引增長速度** 與 **10% 科技研發產率**。</p>
+                <div class="tech-cost-action">
+                  <span>升級消耗: <strong id="tech-cost-propaganda">100 TP</strong></span>
+                  <button onclick="researchTech('propaganda')" class="glowing-btn mini-tech-btn">進行研發</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 6. 內政部 (Interior Tab) ==================== -->
+        <section id="tab-interior" class="tab-content">
+          <div class="section-title">
+            <h2><i class="fa-solid fa-house-chimney-window"></i> 內政與國土部 (Ministry of Interior)</h2>
+            <p>調控人口居住容量、安撫國內民情、舉辦盛大的慶祝祭典提升帝國滿意度。</p>
+          </div>
+
+          <div class="division-layout">
+            <!-- 居住擴展 -->
+            <div class="glass-card flex-1">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-house-circle-check"></i> 帝國都市住宅建設計劃</h3>
+                <span class="badge" id="int-current-housing">目前住宅: 2 間</span>
+              </div>
+              <div class="action-body">
+                <p class="description">建造精緻的帝國高聳住宅群，以容納更多湧入帝國尋求庇護與工作的流民。每增加一間房屋，**人口上限容量加 10 人**！</p>
+                
+                <div class="reclaim-cost-container">
+                  <p>建造下一間民房需消耗物資：</p>
+                  <ul class="cost-list">
+                    <li><i class="fa-solid fa-tree"></i> 木材：<strong id="int-house-cost-wood">200</strong></li>
+                    <li><i class="fa-solid fa-coins"></i> 金幣：<strong id="int-house-cost-gold">100</strong></li>
+                  </ul>
+                </div>
+
+                <button onclick="buildHousing()" class="glowing-btn">啟動房屋興建令</button>
+              </div>
+            </div>
+
+            <!-- 安撫民心 -->
+            <div class="glass-card flex-1">
+              <div class="card-header">
+                <h3><i class="fa-solid fa-guitar"></i> 皇家普天同慶大典</h3>
+              </div>
+              <div class="action-body">
+                <p class="description">當高額的稅收或長期的糧食匱乏導致人民怨聲載道時，你可以舉辦全國性質的璀璨煙火狂歡大典，消耗大量儲備物資，使**國民滿意度瞬間恢復至 100% 滿分**！</p>
+                
+                <div class="reclaim-cost-container">
+                  <p>舉辦盛典預算開支：</p>
+                  <ul class="cost-list">
+                    <li><i class="fa-solid fa-coins"></i> 金幣：<strong id="int-fest-cost-gold">500</strong></li>
+                    <li><i class="fa-solid fa-wheat-awn"></i> 糧食：<strong id="int-fest-cost-food">300</strong></li>
+                  </ul>
+                </div>
+
+                <button onclick="nationalFestival()" class="glowing-btn secondary-glowing-btn">舉辦普天同慶狂歡大典</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 7. 聯網世界地圖 (Worldmap Tab) ==================== -->
+        <section id="tab-worldmap" class="tab-content">
+          <div class="section-title">
+            <h2><i class="fa-solid fa-earth-asia"></i> 聯網世界地圖 (World War Lobby)</h2>
+            <p>在此偵察並掃描本伺服器的所有玩家帝國，派遣你國防部的精銳軍隊行軍進攻，掠奪對方金庫！</p>
+          </div>
+
+          <!-- 行軍中的戰鬥隊伍 (Marching progress) -->
+          <div class="glass-card active-marches-box" id="active-marches-box">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-person-running"></i> 行軍部署實時雷達</h3>
+              <span class="active-count" id="active-marches-count">目前行軍隊伍: 0 隊</span>
+            </div>
+            <div class="marches-list" id="marches-list-container">
+              <p class="text-muted text-center py-3">當前無任何行軍中的進攻或防禦部隊。</p>
+            </div>
+          </div>
+
+          <!-- 全球帝國匹配列表 -->
+          <div class="glass-card">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-radar"></i> 衛星掃描：全球帝國大廳</h3>
+              <span class="update-time"><i class="fa-solid fa-arrows-rotate fa-spin"></i> 自動每 2 秒更新</span>
+            </div>
+            <div class="world-players-table-container">
+              <table class="styled-table">
+                <thead>
+                  <tr>
+                    <th>帝國名稱</th>
+                    <th>君主名稱</th>
+                    <th>綜合戰力</th>
+                    <th>人口數</th>
+                    <th>國庫概況</th>
+                    <th>外交保護狀態</th>
+                    <th>操作指令</th>
+                  </tr>
+                </thead>
+                <tbody id="world-players-tbody">
+                  <!-- JS動態生成 -->
+                  <tr>
+                    <td colspan="7" class="text-center">正在進行全球雷達掃描...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 8. 資源貿易市場 (Market Tab) ==================== -->
+        <section id="tab-market" class="tab-content">
+          <div class="section-title">
+            <h2><i class="fa-solid fa-scale-balanced"></i> 皇家官方交易所 (Imperial Commodity Exchange)</h2>
+            <p>與帝國中央銀行的資源儲存所進行即時兌換。物資價格將隨伺服器物價週期而實時波動！</p>
+          </div>
+
+          <div class="market-trading-room">
+            
+            <!-- 糧食交易卡 -->
+            <div class="glass-card trade-card">
+              <div class="trade-header green-theme">
+                <span class="item-icon"><i class="fa-solid fa-wheat-awn"></i></span>
+                <div>
+                  <h3>小麥糧食 (Food)</h3>
+                  <p>主要口糧與士兵軍費</p>
+                </div>
+              </div>
+              <div class="price-box">
+                <div class="price-row">
+                  <span>買入價格:</span>
+                  <strong class="buy-price" id="mkt-food-buy">🪙1.20 金幣/個</strong>
+                </div>
+                <div class="price-row">
+                  <span>賣出價格:</span>
+                  <strong class="sell-price" id="mkt-food-sell">🪙0.80 金幣/個</strong>
+                </div>
+              </div>
+              <div class="trade-actions">
+                <input type="number" id="trade-food-amount" min="1" placeholder="輸入交易數量" class="styled-input">
+                <div class="btn-group">
+                  <button onclick="tradeResource('buy', 'food')" class="trade-btn buy-btn">買入 (Buy)</button>
+                  <button onclick="tradeResource('sell', 'food')" class="trade-btn sell-btn">賣出 (Sell)</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 木材交易卡 -->
+            <div class="glass-card trade-card">
+              <div class="trade-header brown-theme">
+                <span class="item-icon"><i class="fa-solid fa-tree"></i></span>
+                <div>
+                  <h3>林木板材 (Wood)</h3>
+                  <p>基礎建材與要塞防線</p>
+                </div>
+              </div>
+              <div class="price-box">
+                <div class="price-row">
+                  <span>買入價格:</span>
+                  <strong class="buy-price" id="mkt-wood-buy">🪙1.50 金幣/個</strong>
+                </div>
+                <div class="price-row">
+                  <span>賣出價格:</span>
+                  <strong class="sell-price" id="mkt-wood-sell">🪙1.00 金幣/個</strong>
+                </div>
+              </div>
+              <div class="trade-actions">
+                <input type="number" id="trade-wood-amount" min="1" placeholder="輸入交易數量" class="styled-input">
+                <div class="btn-group">
+                  <button onclick="tradeResource('buy', 'wood')" class="trade-btn buy-btn">買入 (Buy)</button>
+                  <button onclick="tradeResource('sell', 'wood')" class="trade-btn sell-btn">賣出 (Sell)</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 鐵礦交易卡 -->
+            <div class="glass-card trade-card">
+              <div class="trade-header gray-theme">
+                <span class="item-icon"><i class="fa-solid fa-cubes"></i></span>
+                <div>
+                  <h3>高純鐵礦 (Iron)</h3>
+                  <p>重型軍備與尖端科研</p>
+                </div>
+              </div>
+              <div class="price-box">
+                <div class="price-row">
+                  <span>買入價格:</span>
+                  <strong class="buy-price" id="mkt-iron-buy">🪙3.00 金幣/個</strong>
+                </div>
+                <div class="price-row">
+                  <span>賣出價格:</span>
+                  <strong class="sell-price" id="mkt-iron-sell">🪙2.00 金幣/個</strong>
+                </div>
+              </div>
+              <div class="trade-actions">
+                <input type="number" id="trade-iron-amount" min="1" placeholder="輸入交易數量" class="styled-input">
+                <div class="btn-group">
+                  <button onclick="tradeResource('buy', 'iron')" class="trade-btn buy-btn">買入 (Buy)</button>
+                  <button onclick="tradeResource('sell', 'iron')" class="trade-btn sell-btn">賣出 (Sell)</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ==================== 9. 全球帝國排行榜 (Leaderboard Tab) ==================== -->
+        <section id="tab-leaderboard" class="tab-content">
+          <div class="section-title">
+            <h2><i class="fa-solid fa-ranking-star"></i> 全球帝國排行榜 (Global Leaderboard)</h2>
+            <p>按帝國綜合戰力（士兵數、科技水準與要塞加成）進行全服玩家的權力排行！</p>
+          </div>
+
+          <div class="glass-card">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-trophy"></i> 帝王金榜</h3>
+            </div>
+            <div class="world-players-table-container">
+              <table class="styled-table leaderboard-table">
+                <thead>
+                  <tr>
+                    <th>名次</th>
+                    <th>帝國稱號</th>
+                    <th>君主名稱</th>
+                    <th>綜合戰力 (Power)</th>
+                    <th>帝國人口數</th>
+                    <th>當前保護</th>
+                  </tr>
+                </thead>
+                <tbody id="leaderboard-tbody">
+                  <!-- JS動態生成 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 10. 戰報歷史紀錄 (Reports Tab) ==================== -->
+        <section id="tab-reports" class="tab-content">
+          <div class="section-title">
+            <h2><i class="fa-solid fa-receipt"></i> 國防部戰報歷史紀錄 (Battle Logs)</h2>
+            <p>在此查閱你對外發動的所有侵略戰鬥，以及他國對我大本營發動的所有偷襲防守戰紀錄。</p>
+          </div>
+
+          <div class="glass-card mb-3">
+            <div class="reports-control-bar">
+              <span>戰報資料夾備份</span>
+              <button onclick="clearReports()" class="danger-btn"><i class="fa-solid fa-trash-can"></i> 粉碎清空所有戰報歷史</button>
+            </div>
+          </div>
+
+          <div id="reports-list-container" class="reports-vertical-stack">
+            <!-- JS動態生成 -->
+            <p class="text-muted text-center py-5">無任何交戰戰報。快去「聯網世界地圖」發動一場突襲吧！</p>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+  </div>
+
+  <!-- ==========================================
+       出兵攻打對手 彈出視窗 (Siege Dispatch Modal)
+       ========================================== -->
+  <div id="dispatch-modal" class="modal-hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-person-military-pointing"></i> 國防部：出征軍隊派遣命令書</h3>
+        <button onclick="closeDispatchModal()" class="close-modal-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="target-empire-summary">
+          <p>進攻目標帝國：<strong id="modal-target-empire">帝國</strong></p>
+          <p>目標君主：<span id="modal-target-owner">Owner</span></p>
+        </div>
+
+        <div class="force-select-box">
+          <label for="modal-soldiers-input">調度出征士兵人數 (現役可用: <span id="modal-max-soldiers">0</span> 名)</label>
+          <div class="range-and-input">
+            <input type="number" id="modal-soldiers-input" min="1" placeholder="輸入派出兵力" class="styled-input">
+            <button onclick="setModalMax()" class="max-btn">最大兵力</button>
+          </div>
+          <p class="cost-warn-txt"><i class="fa-solid fa-wallet"></i> 預估行軍維持費：🪙<strong id="modal-expedition-cost">0</strong> 金幣 (出兵耗費每士兵 2 金幣)</p>
+        </div>
+
+        <div class="warning-alert-box">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span><strong>重要宣告：</strong>部隊抵達前行軍需要 30 秒，期間防守方將在其終端收到**紅色防禦警報**！主動攻擊後您的「新手免戰護盾」將會立即失效。</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeDispatchModal()" class="modal-btn cancel-btn">取消出征</button>
+        <button onclick="executeAttack()" class="modal-btn confirm-btn glowing-btn">吹響軍號，正式發兵出征！</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
